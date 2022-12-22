@@ -6,7 +6,7 @@ name: Build and deploy Node.js app to Azure Web App - WeoApp
 on:
   push:
     branches:
-      - main
+      - dev
   workflow_dispatch:
 
 jobs:
@@ -52,5 +52,5 @@ jobs:
         with:
           app-name: 'WeoApp'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C0D0C3A1A91741BFA27631BB2C852415 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E079C026D0D842EAB7A4DED16C993CCD }}
           package: .
