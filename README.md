@@ -97,3 +97,79 @@ We welcome contributions to GPT-Shell. If you have an idea for a new feature or 
 ## License
 
 GPT-Shell is released under the MIT License.
+
+
+# Set the buffer file path
+BUFFER_FILE="$HOME/.command_errors_buffer"
+
+# Ensure the buffer file exists
+touch "$BUFFER_FILE"
+
+# Prevent multiple redirections
+if [[ -z "$ZSH_ERROR_CAPTURE_SETUP" ]]; then
+    # Redirect stderr to buffer file while keeping stderr output to terminal
+    exec 2> >(tee -a "$BUFFER_FILE" >&2)
+    export ZSH_ERROR_CAPTURE_SETUP=1
+fi
+
+# Define the askai function
+askai() {
+    # Check for OpenAI API key
+    if [[ -z "$OPENAI_API_KEY" ]]; then
+        echo "Error: OPENAI_API_KEY environment variable is not set."
+        return 1
+    fi
+
+    # Check if the buffer file exists and is not empty
+    if [[ ! -s "$BUFFER_FILE" ]]; then
+        echo "No errors to report."
+        return 0
+    fi
+
+    # Read the buffer file content
+    ERROR_CONTENT=$(cat "$BUFFER_FILE")
+
+    # Prepare the JSON payload using jq for proper escaping
+    PAYLOAD=$(jq -n \
+        --arg model "gpt-4o" \
+        --arg system_content "You are an expert zsh developer and system admin. Analyze this command line output from the terminal of an M1 MacBook Air and provide advice." \
+        --arg user_content "$ERROR_CONTENT" \
+        '{model: $model, messages: [{role: "system", content: $system_content}, {role: "user", content: $user_content}]}' )
+
+    # Send the request
+    RESPONSE=$(curl -sS -X POST "https://api.openai.com/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $OPENAI_API_KEY" \
+        -d "$PAYLOAD")
+
+    # Check for errors in the response
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Failed to contact OpenAI API."
+        return 1
+    fi
+
+    # Check for errors in the API response
+    API_ERROR=$(echo "$RESPONSE" | jq -r '.error.message' 2>/dev/null)
+
+    if [[ "$API_ERROR" != "null" ]]; then
+        echo "Error from OpenAI API: $API_ERROR"
+        return 1
+    fi
+
+    # Extract the assistant's reply
+    REPLY=$(echo "$RESPONSE" | jq -r '.choices[0].message.content' 2>/dev/null)
+
+    if [[ -z "$REPLY" || "$REPLY" == "null" ]]; then
+        echo "Error: Invalid response from OpenAI API."
+        echo "Response from API:"
+        echo "$RESPONSE"
+        return 1
+    fi
+
+    # Print the assistant's reply
+    echo -e "$REPLY"
+
+    # Clear the buffer file
+    > "$BUFFER_FILE"
+}
+
