@@ -98,7 +98,6 @@ We welcome contributions to GPT-Shell. If you have an idea for a new feature or 
 
 GPT-Shell is released under the MIT License.
 
-
 # Set the buffer file path
 BUFFER_FILE="$HOME/.command_errors_buffer"
 
@@ -168,6 +167,11 @@ askai() {
 
     # Print the assistant's reply
     echo -e "$REPLY"
+
+    # Clear the buffer file
+    > "$BUFFER_FILE"
+}
+
 
     # Clear the buffer file
     > "$BUFFER_FILE"
